@@ -117,9 +117,9 @@
 **Description:** Implement `SearchScreen` with live query filtering and `ProfileScreen` with user profile header and Light/Dark theme toggle.
 
 **Acceptance criteria:**
-- [ ] Search query dynamically filters product results.
-- [ ] Profile screen allows toggling between Light and Dark mode.
+- [x] Search query dynamically filters product results with debounced DummyJSON query.
+- [x] Profile screen allows toggling between Light and Dark mode.
 
 **Verification:**
-- [ ] Analyzer passes: `flutter analyze`
-- [ ] Full test suite passes: `flutter test`
+- [x] Analyzer passes: `flutter analyze`
+- [x] Full test suite passes: `flutter test`
