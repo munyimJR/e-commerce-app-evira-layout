@@ -5,7 +5,7 @@ import '../../../../core/widgets/error_retry_widget.dart';
 import '../../state/cart_provider.dart';
 import '../widgets/cart_item_tile.dart';
 import '../widgets/cart_order_summary.dart';
-import '../widgets/checkout_dialog.dart';
+import '../../../order/presentation/checkout_page.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
@@ -75,15 +75,9 @@ class CartScreen extends StatelessWidget {
           ? CartOrderSummary(
               cartProvider: cartProvider,
               onCheckout: () {
-                final total = cartProvider.finalTotal;
-                final count = cartProvider.totalQuantity;
-                CheckoutSuccessDialog.show(
+                Navigator.push(
                   context,
-                  totalAmount: total,
-                  itemCount: count,
-                  onContinueShopping: () {
-                    cartProvider.clearCart();
-                  },
+                  MaterialPageRoute(builder: (_) => const CheckoutPage()),
                 );
               },
             )

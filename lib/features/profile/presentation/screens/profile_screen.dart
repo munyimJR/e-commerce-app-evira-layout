@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/theme_provider.dart';
+import '../../../order/presentation/orders_page.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -84,12 +85,29 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // Theme Switcher Tile
-          Container(
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1F222A) : Colors.white,
-              borderRadius: BorderRadius.circular(16),
+          // My Orders Tile
+          Material(
+            color: isDark ? const Color(0xFF1F222A) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            child: ListTile(
+              leading: const Icon(Icons.receipt_long_outlined),
+              title: const Text('My Orders'),
+              subtitle: const Text('View and track your previous orders', style: TextStyle(fontSize: 12)),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const OrdersPage()),
+                );
+              },
             ),
+          ),
+          const SizedBox(height: 12),
+
+          // Theme Switcher Tile
+          Material(
+            color: isDark ? const Color(0xFF1F222A) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
             child: ListTile(
               leading: Icon(
                 themeProvider.isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
