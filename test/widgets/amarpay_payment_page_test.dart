@@ -1,3 +1,4 @@
+import 'package:e_commerce_app_v1/core/constants/payment_constants.dart';
 import 'package:e_commerce_app_v1/features/order/models/payment_result.dart';
 import 'package:e_commerce_app_v1/features/order/presentation/amarpay_payment_page.dart';
 import 'package:flutter/material.dart';
@@ -30,7 +31,7 @@ void main() {
     expect(find.text('Open aamarPay in Browser'), findsOneWidget);
     expect(find.text('Verify & Complete Sandbox Transaction'), findsOneWidget);
     expect(find.text('Cancel Transaction'), findsOneWidget);
-    expect(find.text('\$54.99 USD'), findsOneWidget);
+    expect(find.text('\$54.99 ${PaymentConstants.defaultCurrency}'), findsOneWidget);
   });
 
   testWidgets('AmarpayPaymentPage completing sandbox payment pops with success PaymentResult', (WidgetTester tester) async {

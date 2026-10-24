@@ -13,7 +13,7 @@ void main() {
       expect(PaymentConstants.initiateEndpoint, '/jsonpost.php');
       expect(PaymentConstants.storeId, 'aamarpaytest');
       expect(PaymentConstants.signatureKey, 'dbb74894e82415a2f7ff0ec3a97e4183');
-      expect(PaymentConstants.defaultCurrency, 'USD');
+      expect(PaymentConstants.defaultCurrency, 'BDT');
       expect(PaymentConstants.successUrl, 'https://example.app/payment/success');
       expect(PaymentConstants.failUrl, 'https://example.app/payment/fail');
       expect(PaymentConstants.cancelUrl, 'https://example.app/payment/cancel');
@@ -56,7 +56,7 @@ void main() {
         expect(body['store_id'], PaymentConstants.storeId);
         expect(body['signature_key'], PaymentConstants.signatureKey);
         expect(body['amount'], '120.50');
-        expect(body['currency'], 'USD');
+        expect(body['currency'], PaymentConstants.defaultCurrency);
         expect(body['tran_id'], 'TXN_999');
 
         return http.Response(

@@ -77,18 +77,41 @@ class OrderProvider extends ChangeNotifier {
   Future<PaymentResult> initiateAmarpayPayment({
     required double amount,
     required String transactionId,
+    List<CartItem>? cartItems,
+    String? customerName,
+    String? customerPhone,
+    String? customerAddress,
+    String? customerCity,
+    String? customerEmail,
+    String? description,
+    String? currency,
   }) async {
     _isLoading = true;
     notifyListeners();
 
     try {
+      final itemsSummary = (cartItems != null && cartItems.isNotEmpty)
+          ? cartItems.map((e) => '${e.quantity}x ${e.title}').join(', ')
+          : (description ?? 'Order payment #$transactionId');
+
       final result = await _amarpayService.initiatePayment(
         amount: amount,
         transactionId: transactionId,
-        customerName: _currentAddress.recipientName,
-        customerPhone: _currentAddress.phoneNumber,
-        customerAddress: _currentAddress.streetAddress,
-        customerCity: _currentAddress.city,
+        customerName: (customerName != null && customerName.isNotEmpty)
+            ? customerName
+            : _currentAddress.recipientName,
+        customerPhone: (customerPhone != null && customerPhone.isNotEmpty)
+            ? customerPhone
+            : _currentAddress.phoneNumber,
+        customerAddress: (customerAddress != null && customerAddress.isNotEmpty)
+            ? customerAddress
+            : _currentAddress.streetAddress,
+        customerCity: (customerCity != null && customerCity.isNotEmpty)
+            ? customerCity
+            : _currentAddress.city,
+        customerEmail: customerEmail,
+        description: itemsSummary,
+        currency: currency,
       );
       return result;
     } finally {

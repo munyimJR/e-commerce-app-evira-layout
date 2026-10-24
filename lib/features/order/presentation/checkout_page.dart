@@ -78,9 +78,22 @@ class _CheckoutPageState extends State<CheckoutPage> {
     String? tranId;
     if (orderProvider.selectedPaymentMethodId == 'amarpay') {
       final generatedTranId = 'TXN_${DateTime.now().millisecondsSinceEpoch}';
+      final cartSummary = cartProvider.items
+          .map((item) => '${item.quantity}x ${item.title}')
+          .join(', ');
+      final desc = cartSummary.isNotEmpty
+          ? 'Cart: $cartSummary'
+          : 'Order payment #$generatedTranId';
+
       final paymentResult = await orderProvider.initiateAmarpayPayment(
         amount: total,
         transactionId: generatedTranId,
+        cartItems: cartProvider.items,
+        customerName: _nameController.text.trim(),
+        customerPhone: _phoneController.text.trim(),
+        customerAddress: _streetController.text.trim(),
+        customerCity: _cityController.text.trim(),
+        description: desc,
       );
 
       if (!context.mounted) return;
@@ -107,6 +120,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
             paymentUrl: paymentResult.paymentUrl!,
             transactionId: generatedTranId,
             amount: total,
+            customerName: _nameController.text.trim(),
+            itemsSummary: cartSummary,
           ),
         ),
       );
