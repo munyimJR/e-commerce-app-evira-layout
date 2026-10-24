@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Callback</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background-color: #F8F9FA;
+      color: #181A20;
+    }
+    .card {
+      background: #FFFFFF;
+      padding: 32px 28px;
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.06);
+      text-align: center;
+      max-width: 360px;
+      margin: 16px;
+    }
+    .icon-container {
+      width: 64px;
+      height: 64px;
+      background: #E8F8F2;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px auto;
+      color: #00B074;
+      font-size: 32px;
+    }
+    h2 {
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    p {
+      margin: 0 0 20px 0;
+      font-size: 14px;
+      color: #71717A;
+      line-height: 1.5;
+    }
+    .spinner {
+      border: 3px solid rgba(0, 176, 116, 0.2);
+      border-top: 3px solid #00B074;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon-container" id="icon">✓</div>
+    <h2 id="heading">Payment Successful</h2>
+    <p id="desc">Returning you to your order in the application...</p>
+    <div class="spinner" id="spinner"></div>
+  </div>
+
+  <script>
+    function parseStatus() {
+      const params = new URLSearchParams(window.location.search);
+      const rawStatus = (params.get('status') || params.get('pay_status') || 'success').toLowerCase();
+      
+      let finalStatus = 'success';
+      if (rawStatus.includes('fail') || rawStatus === 'failed') {
+        finalStatus = 'fail';
+      } else if (rawStatus.includes('cancel') || rawStatus === 'cancelled') {
+        finalStatus = 'cancel';
+      }
+
+      if (finalStatus === 'fail') {
+        document.getElementById('icon').textContent = '✕';
+        document.getElementById('icon').style.background = '#FEECEB';
+        document.getElementById('icon').style.color = '#EF4444';
+        document.getElementById('heading').textContent = 'Payment Failed';
+        document.getElementById('desc').textContent = 'Returning to checkout...';
+      } else if (finalStatus === 'cancel') {
+        document.getElementById('icon').textContent = '!';
+        document.getElementById('icon').style.background = '#FEF3C7';
+        document.getElementById('icon').style.color = '#F59E0B';
+        document.getElementById('heading').textContent = 'Payment Cancelled';
+        document.getElementById('desc').textContent = 'Returning to checkout...';
+      }
+
+      return finalStatus;
+    }
+
+    const currentStatus = parseStatus();
+
+    function notifyParent() {
+      const payload = JSON.stringify({
+        source: 'aamarpay_callback',
+        status: currentStatus,
+        url: window.location.href
+      });
+
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage(payload, '*');
+        }
+      } catch (e) {}
+
+      try {
+        if (window.top && window.top !== window) {
+          window.top.postMessage(payload, '*');
+        }
+      } catch (e) {}
+
+      try {
+        if (window.opener) {
+          window.opener.postMessage(payload, '*');
+        }
+      } catch (e) {}
+    }
+
+    // Send immediately and repeated to ensure parent listener catches it
+    notifyParent();
+    const intervalId = setInterval(notifyParent, 400);
+    setTimeout(function() {
+      clearInterval(intervalId);
+    }, 6000);
+  </script>
+</body>
+</html>

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/constants/payment_constants.dart';
 import '../models/payment_result.dart';
+import 'web_gateway_view.dart';
 
 class AmarpayPaymentPage extends StatefulWidget {
   final String paymentUrl;
@@ -40,8 +41,8 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
     super.initState();
     if (_isMobile) {
       _initWebView();
-    } else {
-      // Auto-open in-app browser view on web / desktop platforms
+    } else if (!kIsWeb) {
+      // Auto-open in-app browser view on desktop platforms
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _openInAppBrowser();
       });
@@ -293,8 +294,130 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
       );
     }
 
-    // 2. Fallback UI for Desktop / Web or environments without native webview
+    // 2. Web In-App Browser: embeds aamarPay directly in the screen (no separate tab)
+    if (kIsWeb) {
+      return _buildWebInAppView(context);
+    }
+
+    // 3. Fallback UI for Desktop or test environments without native webview
     return _buildDesktopAndFallbackPortal(context);
+  }
+
+  Widget _buildWebInAppView(BuildContext context) {
+    return Column(
+      children: [
+        // Embedded aamarPay Gateway View (In-App Browser experience on Web)
+        Expanded(
+          child: buildWebGatewayView(
+            paymentUrl: widget.paymentUrl,
+            onSuccess: () {
+              _finishPayment(
+                PaymentResult.success(
+                  transactionId: widget.transactionId,
+                  paymentUrl: widget.paymentUrl,
+                  message: 'aamarPay payment completed successfully',
+                ),
+              );
+            },
+            onFail: () {
+              _finishPayment(
+                PaymentResult.failure(
+                  transactionId: widget.transactionId,
+                  message: 'aamarPay payment failed or was declined',
+                ),
+              );
+            },
+            onCancel: () {
+              _finishPayment(
+                PaymentResult.failure(
+                  transactionId: widget.transactionId,
+                  message: 'aamarPay payment was cancelled',
+                ),
+              );
+            },
+          ),
+        ),
+
+        // Bottom Action Bar: displays converted BDT/USD amount and manual "Verify & Complete" button
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 10,
+                offset: const Offset(0, -3),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Total Payable',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        '৳${widget.amount.toStringAsFixed(2)} BDT',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFE67E22),
+                        ),
+                      ),
+                      if (widget.usdAmount != null)
+                        Text(
+                          '(\$${widget.usdAmount!.toStringAsFixed(2)} USD)',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black45,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _finishPayment(
+                      PaymentResult.success(
+                        transactionId: widget.transactionId,
+                        paymentUrl: widget.paymentUrl,
+                        message: 'aamarPay payment verified successfully',
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.check_circle_rounded, size: 18),
+                  label: const Text(
+                    'Verify & Complete',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00B074),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildDesktopAndFallbackPortal(BuildContext context) {

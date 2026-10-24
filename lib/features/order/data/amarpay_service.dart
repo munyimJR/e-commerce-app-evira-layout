@@ -21,6 +21,21 @@ class AmarpayService {
     String? currency,
     String? description,
   }) async {
+    String successUrl = PaymentConstants.successUrl;
+    String failUrl = PaymentConstants.failUrl;
+    String cancelUrl = PaymentConstants.cancelUrl;
+
+    if (kIsWeb) {
+      try {
+        final origin = Uri.base.origin;
+        if (origin.isNotEmpty && origin.startsWith('http')) {
+          successUrl = '$origin/payment_callback.html';
+          failUrl = '$origin/payment_callback.html?status=fail';
+          cancelUrl = '$origin/payment_callback.html?status=cancel';
+        }
+      } catch (_) {}
+    }
+
     final payload = {
       'store_id': PaymentConstants.storeId,
       'signature_key': PaymentConstants.signatureKey,
@@ -38,9 +53,9 @@ class AmarpayService {
       'cus_add1': customerAddress.isNotEmpty ? customerAddress : 'Evira Street',
       'cus_city': customerCity.isNotEmpty ? customerCity : 'Dhaka',
       'cus_country': 'Bangladesh',
-      'success_url': PaymentConstants.successUrl,
-      'fail_url': PaymentConstants.failUrl,
-      'cancel_url': PaymentConstants.cancelUrl,
+      'success_url': successUrl,
+      'fail_url': failUrl,
+      'cancel_url': cancelUrl,
       'type': 'json',
     };
 
