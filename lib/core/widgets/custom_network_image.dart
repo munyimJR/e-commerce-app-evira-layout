@@ -7,6 +7,10 @@ class CustomNetworkImage extends StatelessWidget {
   final double? height;
   final BoxFit fit;
   final double borderRadius;
+  final int? memCacheWidth;
+  final int? memCacheHeight;
+  final int? maxWidthDiskCache;
+  final int? maxHeightDiskCache;
 
   const CustomNetworkImage({
     super.key,
@@ -15,6 +19,10 @@ class CustomNetworkImage extends StatelessWidget {
     this.height,
     this.fit = BoxFit.cover,
     this.borderRadius = 0,
+    this.memCacheWidth,
+    this.memCacheHeight,
+    this.maxWidthDiskCache,
+    this.maxHeightDiskCache,
   });
 
   @override
@@ -22,11 +30,21 @@ class CustomNetworkImage extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final placeholderColor = isDark ? const Color(0xFF1F222A) : const Color(0xFFF3F3F3);
 
+    final dpr = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 2.0;
+    final effectiveMemWidth = memCacheWidth ??
+        ((width != null && width!.isFinite) ? (width! * dpr).round() : null);
+    final effectiveMemHeight = memCacheHeight ??
+        ((height != null && height!.isFinite) ? (height! * dpr).round() : null);
+
     Widget imageWidget = CachedNetworkImage(
       imageUrl: imageUrl,
       width: width,
       height: height,
       fit: fit,
+      memCacheWidth: effectiveMemWidth,
+      memCacheHeight: effectiveMemHeight,
+      maxWidthDiskCache: maxWidthDiskCache ?? 1200,
+      maxHeightDiskCache: maxHeightDiskCache ?? 1200,
       placeholder: (context, url) => Container(
         width: width,
         height: height,

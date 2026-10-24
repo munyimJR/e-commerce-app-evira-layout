@@ -58,6 +58,8 @@ class ProductCard extends StatelessWidget {
                           imageUrl: product.thumbnail,
                           fit: BoxFit.contain,
                           borderRadius: 14,
+                          memCacheWidth: 400,
+                          memCacheHeight: 400,
                         ),
                       ),
                     ),

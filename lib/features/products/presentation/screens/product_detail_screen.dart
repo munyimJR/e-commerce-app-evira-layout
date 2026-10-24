@@ -113,8 +113,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                         child: CustomNetworkImage(
                           imageUrl: imageList[index],
+                          width: 60,
+                          height: 60,
                           fit: BoxFit.contain,
                           borderRadius: 8,
+                          memCacheWidth: 150,
+                          memCacheHeight: 150,
                         ),
                       ),
                     );

@@ -262,7 +262,11 @@ class ProfilePage extends StatelessWidget {
                       color: isDark ? Colors.white12 : Colors.grey.shade200,
                       child: CustomNetworkImage(
                         imageUrl: user.image,
+                        width: 64,
+                        height: 64,
                         fit: BoxFit.cover,
+                        memCacheWidth: 150,
+                        memCacheHeight: 150,
                       ),
                     ),
                   )

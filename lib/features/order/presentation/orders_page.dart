@@ -272,7 +272,11 @@ class OrdersPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     child: CustomNetworkImage(
                       imageUrl: item.thumbnail,
+                      width: 52,
+                      height: 52,
                       fit: BoxFit.contain,
+                      memCacheWidth: 150,
+                      memCacheHeight: 150,
                     ),
                   ),
                 );
@@ -562,7 +566,11 @@ class OrdersPage extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                             child: CustomNetworkImage(
                               imageUrl: item.thumbnail,
+                              width: 48,
+                              height: 48,
                               fit: BoxFit.contain,
+                              memCacheWidth: 150,
+                              memCacheHeight: 150,
                             ),
                           ),
                         ),

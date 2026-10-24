@@ -47,7 +47,11 @@ class CartItemTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               child: CustomNetworkImage(
                 imageUrl: item.thumbnail,
+                width: 80,
+                height: 80,
                 fit: BoxFit.contain,
+                memCacheWidth: 200,
+                memCacheHeight: 200,
               ),
             ),
           ),

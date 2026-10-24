@@ -503,7 +503,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
               borderRadius: BorderRadius.circular(10),
               child: CustomNetworkImage(
                 imageUrl: item.thumbnail,
+                width: 50,
+                height: 50,
                 fit: BoxFit.contain,
+                memCacheWidth: 150,
+                memCacheHeight: 150,
               ),
             ),
           ),
