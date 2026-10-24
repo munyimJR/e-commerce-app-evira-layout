@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:e_commerce_app_v1/core/theme/theme_provider.dart';
 import 'package:e_commerce_app_v1/features/order/providers/order_provider.dart';
-import 'package:e_commerce_app_v1/features/profile/models/user_model.dart';
 import 'package:e_commerce_app_v1/features/profile/presentation/pages/profile_page.dart';
 import 'package:e_commerce_app_v1/features/profile/presentation/pages/signin_page.dart';
 import 'package:e_commerce_app_v1/features/profile/state/auth_provider.dart';
