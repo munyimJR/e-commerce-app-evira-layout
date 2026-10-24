@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/models/product_model.dart';
 import '../../../../core/widgets/custom_network_image.dart';
 import '../../../../core/widgets/discount_badge.dart';
 import '../../../../core/widgets/price_tag.dart';
+import '../../../../core/widgets/quantity_selector.dart';
 import '../../../../core/widgets/rating_badge.dart';
+import '../../../cart/state/cart_provider.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final ProductModel product;
@@ -246,28 +249,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
         child: Row(
           children: [
-            // Quantity Selector
-            Container(
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF181A20) : const Color(0xFFF3F3F3),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.remove, size: 18),
-                    onPressed: _quantity > 1 ? () => setState(() => _quantity--) : null,
-                  ),
-                  Text(
-                    '$_quantity',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add, size: 18),
-                    onPressed: () => setState(() => _quantity++),
-                  ),
-                ],
-              ),
+            // Reusable Quantity Selector
+            QuantitySelector(
+              quantity: _quantity,
+              onIncrement: () => setState(() => _quantity++),
+              onDecrement: () => setState(() => _quantity--),
+              height: 44,
+              iconSize: 18,
             ),
             const SizedBox(width: 14),
 
@@ -275,6 +263,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () {
+                  context.read<CartProvider>().addToCart(product, quantity: _quantity);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Added $_quantity x ${product.title} to cart!'),

@@ -8,6 +8,7 @@ import '../../products/presentation/screens/product_detail_screen.dart';
 import '../../products/presentation/widgets/category_pill.dart';
 import '../../products/presentation/widgets/product_card.dart';
 import '../../products/state/product_provider.dart';
+import '../../cart/state/cart_provider.dart';
 import 'widgets/promo_banner_card.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -215,6 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               );
                             },
                             onAddToCart: () {
+                              context.read<CartProvider>().addToCart(product);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('Added ${product.title} to cart!'),

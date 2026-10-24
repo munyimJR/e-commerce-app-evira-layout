@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../cart/presentation/screens/cart_screen.dart';
+import '../../cart/state/cart_provider.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../products/presentation/screens/search_screen.dart';
-import '../../cart/presentation/screens/cart_screen.dart';
 import '../../profile/presentation/screens/profile_screen.dart';
 
 class MainNavigationShell extends StatefulWidget {
@@ -24,6 +26,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final totalCartQuantity = context.select<CartProvider, int>(
+      (provider) => provider.totalQuantity,
+    );
 
     return Scaffold(
       body: IndexedStack(
@@ -50,23 +55,33 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           backgroundColor: Colors.transparent,
           indicatorColor: isDark ? const Color(0xFF1F222A) : const Color(0xFFE0E0E0),
           elevation: 0,
-          destinations: const [
-            NavigationDestination(
+          destinations: [
+            const NavigationDestination(
               icon: Icon(Icons.home_outlined),
               selectedIcon: Icon(Icons.home_rounded),
               label: 'Home',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.search_rounded),
               selectedIcon: Icon(Icons.search_rounded),
               label: 'Search',
             ),
             NavigationDestination(
-              icon: Icon(Icons.shopping_bag_outlined),
-              selectedIcon: Icon(Icons.shopping_bag_rounded),
+              icon: totalCartQuantity > 0
+                  ? Badge.count(
+                      count: totalCartQuantity,
+                      child: const Icon(Icons.shopping_bag_outlined),
+                    )
+                  : const Icon(Icons.shopping_bag_outlined),
+              selectedIcon: totalCartQuantity > 0
+                  ? Badge.count(
+                      count: totalCartQuantity,
+                      child: const Icon(Icons.shopping_bag_rounded),
+                    )
+                  : const Icon(Icons.shopping_bag_rounded),
               label: 'Cart',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.person_outline_rounded),
               selectedIcon: Icon(Icons.person_rounded),
               label: 'Profile',

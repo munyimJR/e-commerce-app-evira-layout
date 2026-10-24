@@ -9,6 +9,7 @@ import '../widgets/product_card.dart';
 import '../screens/product_detail_screen.dart';
 import '../../state/product_provider.dart';
 import '../../state/search_provider.dart';
+import '../../../cart/state/cart_provider.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -155,6 +156,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       );
                     },
                     onAddToCart: () {
+                      context.read<CartProvider>().addToCart(product);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text('Added ${product.title} to cart!'),

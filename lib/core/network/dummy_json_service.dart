@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../models/cart_model.dart';
 import '../models/product_model.dart';
 import '../models/products_response_model.dart';
 
@@ -64,6 +65,40 @@ class DummyJsonService {
       return ProductModel.fromJson(data);
     } else {
       throw Exception('Failed to fetch product details: ${response.statusCode}');
+    }
+  }
+
+  /// Fetch a cart from DummyJSON Cart API
+  Future<CartModel> fetchCart({int cartId = 1}) async {
+    final url = Uri.parse('$_baseUrl/carts/$cartId');
+    final response = await _client.get(url);
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body) as Map<String, dynamic>;
+      return CartModel.fromJson(data);
+    } else {
+      throw Exception('Failed to fetch cart: ${response.statusCode}');
+    }
+  }
+
+  /// Add/Sync cart with DummyJSON API
+  Future<CartModel> syncCart({
+    required int userId,
+    required List<Map<String, dynamic>> products,
+  }) async {
+    final url = Uri.parse('$_baseUrl/carts/add');
+    final response = await _client.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'userId': userId,
+        'products': products,
+      }),
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = json.decode(response.body) as Map<String, dynamic>;
+      return CartModel.fromJson(data);
+    } else {
+      throw Exception('Failed to sync cart: ${response.statusCode}');
     }
   }
 }
