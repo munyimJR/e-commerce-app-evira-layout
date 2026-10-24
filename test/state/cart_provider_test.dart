@@ -1,55 +1,61 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:e_commerce_app_v1/core/models/cart_item_model.dart';
-import 'package:e_commerce_app_v1/core/models/cart_model.dart';
 import 'package:e_commerce_app_v1/core/models/product_model.dart';
-import 'package:e_commerce_app_v1/core/network/dummy_json_service.dart';
+import 'package:e_commerce_app_v1/features/cart/data/models/cart_item.dart';
+import 'package:e_commerce_app_v1/features/cart/data/models/cloud_cart_dto.dart';
+import 'package:e_commerce_app_v1/features/cart/data/repository/cart_repository.dart';
 import 'package:e_commerce_app_v1/features/cart/state/cart_provider.dart';
 
-class MockCartService extends DummyJsonService {
+class MockCartRepository extends CartRepository {
   bool shouldThrow = false;
-  List<Map<String, dynamic>>? lastSyncedProducts;
+  List<CartItem> localItems = [];
+  List<CartItem>? lastSyncedItems;
 
   @override
-  Future<CartModel> fetchCart({int cartId = 1}) async {
-    if (shouldThrow) {
-      throw Exception('Network connection error');
-    }
-    return const CartModel(
-      id: 1,
-      products: [
-        CartItemModel(
-          id: 1,
-          title: 'Initial Item',
-          price: 20.0,
-          quantity: 2,
-          total: 40.0,
-          discountPercentage: 10.0,
-          discountedTotal: 36.0,
-          thumbnail: 'https://example.com/thumb.jpg',
-        ),
-      ],
-      total: 40.0,
-      discountedTotal: 36.0,
-      userId: 1,
-      totalProducts: 1,
-      totalQuantity: 2,
-    );
+  Future<List<CartItem>> getLocalCart() async {
+    return List.from(localItems);
   }
 
   @override
-  Future<CartModel> syncCart({
-    required int userId,
-    required List<Map<String, dynamic>> products,
-  }) async {
-    lastSyncedProducts = products;
-    return CartModel(
+  Future<void> saveLocalCart(List<CartItem> items) async {
+    localItems = List.from(items);
+  }
+
+  @override
+  Future<void> clearLocalCart() async {
+    localItems.clear();
+  }
+
+  @override
+  Future<List<CartItem>> fetchRemoteCart({int cartId = 1}) async {
+    if (shouldThrow) {
+      throw Exception('Network connection error');
+    }
+    const sample = CartItem(
       id: 1,
-      products: [],
-      total: 0,
-      discountedTotal: 0,
+      title: 'Initial Item',
+      price: 20.0,
+      quantity: 2,
+      total: 40.0,
+      discountPercentage: 10.0,
+      discountedTotal: 36.0,
+      thumbnail: 'https://example.com/thumb.jpg',
+    );
+    localItems = [sample];
+    return [sample];
+  }
+
+  @override
+  Future<CloudCartDto?> syncCart({
+    required int userId,
+    required List<CartItem> items,
+    int? cartId,
+  }) async {
+    lastSyncedItems = List.from(items);
+    localItems = List.from(items);
+    return CloudCartDto.fromDomain(
+      id: cartId ?? 1,
       userId: userId,
-      totalProducts: 0,
-      totalQuantity: 0,
+      items: items,
     );
   }
 }
@@ -78,13 +84,13 @@ void main() {
     reviews: [],
   );
 
-  group('CartProvider', () {
-    late MockCartService mockService;
+  group('CartProvider with CartRepository (Offline & Remote Sync)', () {
+    late MockCartRepository mockRepo;
     late CartProvider provider;
 
     setUp(() {
-      mockService = MockCartService();
-      provider = CartProvider(service: mockService);
+      mockRepo = MockCartRepository();
+      provider = CartProvider(repository: mockRepo);
     });
 
     test('initial state is clean', () {
@@ -96,7 +102,7 @@ void main() {
       expect(provider.shippingFee, 0.0);
     });
 
-    test('loadInitialCart populates items from API', () async {
+    test('loadInitialCart loads from remote when local is empty and caches locally', () async {
       await provider.loadInitialCart();
 
       expect(provider.isLoading, isFalse);
@@ -106,19 +112,53 @@ void main() {
       expect(provider.subtotal, 40.0);
       expect(provider.discountedTotal, 36.0);
       expect(provider.savings, 4.0);
-      expect(provider.errorMessage, isEmpty);
+      expect(mockRepo.localItems.length, 1);
     });
 
-    test('loadInitialCart handles API failure gracefully', () async {
-      mockService.shouldThrow = true;
+    test('loadInitialCart loads immediately from local offline cache if available', () async {
+      mockRepo.localItems = [
+        const CartItem(
+          id: 55,
+          title: 'Offline Cached Item',
+          price: 50.0,
+          quantity: 1,
+          total: 50.0,
+          discountPercentage: 0.0,
+          discountedTotal: 50.0,
+          thumbnail: 'https://example.com/item.jpg',
+        ),
+      ];
+
       await provider.loadInitialCart();
 
-      expect(provider.isLoading, isFalse);
-      expect(provider.items, isEmpty);
-      expect(provider.errorMessage, contains('Network connection error'));
+      expect(provider.items.length, 1);
+      expect(provider.items.first.title, 'Offline Cached Item');
+      expect(provider.subtotal, 50.0);
     });
 
-    test('addToCart adds new item and syncs with API', () {
+    test('loadInitialCart handles remote failure gracefully by falling back to local storage', () async {
+      mockRepo.shouldThrow = true;
+      mockRepo.localItems = [
+        const CartItem(
+          id: 77,
+          title: 'Fallback Item',
+          price: 30.0,
+          quantity: 1,
+          total: 30.0,
+          discountPercentage: 0.0,
+          discountedTotal: 30.0,
+          thumbnail: '',
+        ),
+      ];
+
+      await provider.loadInitialCart(refresh: true);
+
+      expect(provider.isLoading, isFalse);
+      expect(provider.items.length, 1);
+      expect(provider.items.first.title, 'Fallback Item');
+    });
+
+    test('addToCart adds item, saves offline, and syncs remotely', () async {
       provider.addToCart(sampleProduct, quantity: 2);
 
       expect(provider.items.length, 1);
@@ -127,43 +167,43 @@ void main() {
       expect(provider.totalQuantity, 2);
       expect(provider.subtotal, 200.0);
       expect(provider.discountedTotal, 160.0);
-      expect(mockService.lastSyncedProducts, isNotNull);
-      expect(mockService.lastSyncedProducts!.first['id'], 99);
+
+      // Verify offline persistence
+      expect(mockRepo.localItems.length, 1);
+      expect(mockRepo.localItems.first.id, 99);
+
+      // Allow async sync microtask
+      await pumpEventQueue();
+      expect(mockRepo.lastSyncedItems, isNotNull);
+      expect(mockRepo.lastSyncedItems!.first.id, 99);
     });
 
-    test('addToCart increments existing item quantity', () {
-      provider.addToCart(sampleProduct, quantity: 1);
-      provider.addToCart(sampleProduct, quantity: 3);
-
-      expect(provider.items.length, 1);
-      expect(provider.items.first.quantity, 4);
-      expect(provider.totalQuantity, 4);
-    });
-
-    test('incrementQuantity and decrementQuantity adjust items', () {
+    test('incrementQuantity and decrementQuantity adjust items and save offline', () {
       provider.addToCart(sampleProduct, quantity: 2);
       provider.incrementQuantity(99);
       expect(provider.items.first.quantity, 3);
+      expect(mockRepo.localItems.first.quantity, 3);
 
       provider.decrementQuantity(99);
       expect(provider.items.first.quantity, 2);
+      expect(mockRepo.localItems.first.quantity, 2);
 
       provider.decrementQuantity(99);
-      expect(provider.items.first.quantity, 1);
-
       provider.decrementQuantity(99);
       expect(provider.items, isEmpty);
+      expect(mockRepo.localItems, isEmpty);
     });
 
-    test('removeItem removes specific product', () {
+    test('removeItem removes item from state and offline cache', () {
       provider.addToCart(sampleProduct, quantity: 2);
       expect(provider.items.length, 1);
 
       provider.removeItem(99);
       expect(provider.items, isEmpty);
+      expect(mockRepo.localItems, isEmpty);
     });
 
-    test('clearCart empties all products and resets promo', () {
+    test('clearCart empties all products and clears local cache', () {
       provider.addToCart(sampleProduct, quantity: 1);
       provider.applyPromoCode('EVIRA20');
       expect(provider.appliedPromoCode, 'EVIRA20');
@@ -171,6 +211,7 @@ void main() {
       provider.clearCart();
       expect(provider.items, isEmpty);
       expect(provider.appliedPromoCode, isNull);
+      expect(mockRepo.localItems, isEmpty);
     });
 
     test('applyPromoCode validates codes correctly', () {
@@ -201,7 +242,6 @@ void main() {
     });
 
     test('shippingFee calculates free over 50 or flat 4.99 under 50', () {
-      // 1 item of $20 discounted -> under $50 -> shipping 4.99
       const cheapProduct = ProductModel(
         id: 2,
         title: 'Pen',

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../core/models/cart_item_model.dart';
-import '../../../core/models/product_model.dart';
-import '../../../core/network/dummy_json_service.dart';
+import '../../../../core/models/product_model.dart';
+import '../data/models/cart_item.dart';
+import '../data/repository/cart_repository.dart';
 
 class PromoCodeResult {
   final bool success;
@@ -11,20 +11,21 @@ class PromoCodeResult {
 }
 
 class CartProvider extends ChangeNotifier {
-  final DummyJsonService _service;
+  final CartRepository _repository;
   final int _userId = 1;
+  final int _cartId = 1;
 
-  CartProvider({DummyJsonService? service})
-      : _service = service ?? DummyJsonService();
+  CartProvider({CartRepository? repository})
+      : _repository = repository ?? CartRepository();
 
-  List<CartItemModel> _items = [];
+  List<CartItem> _items = [];
   bool _isLoading = false;
   bool _isSyncing = false;
   String _errorMessage = '';
   String? _appliedPromoCode;
   double _promoDiscountRate = 0.0;
 
-  List<CartItemModel> get items => List.unmodifiable(_items);
+  List<CartItem> get items => List.unmodifiable(_items);
   bool get isLoading => _isLoading;
   bool get isSyncing => _isSyncing;
   String get errorMessage => _errorMessage;
@@ -64,26 +65,42 @@ class CartProvider extends ChangeNotifier {
             .toStringAsFixed(2),
       );
 
-  /// Fetch initial sample cart from DummyJSON API
+  /// Load cart: offline cache first, followed by remote API sync
   Future<void> loadInitialCart({bool refresh = false}) async {
-    if (_items.isNotEmpty && !refresh) return;
-
     _isLoading = true;
     _errorMessage = '';
     notifyListeners();
 
     try {
-      final cart = await _service.fetchCart(cartId: 1);
-      _items = List.from(cart.products);
+      // 1. Try loading from local offline storage first
+      if (!refresh) {
+        final cachedItems = await _repository.getLocalCart();
+        if (cachedItems.isNotEmpty) {
+          _items = List.from(cachedItems);
+          _isLoading = false;
+          notifyListeners();
+          return;
+        }
+      }
+
+      // 2. Fetch from Remote DummyJSON API
+      final remoteItems = await _repository.fetchRemoteCart(cartId: _cartId);
+      _items = List.from(remoteItems);
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
+      // If remote failed, attempt fallback to local storage
+      final cachedItems = await _repository.getLocalCart();
+      if (cachedItems.isNotEmpty) {
+        _items = List.from(cachedItems);
+        _errorMessage = '';
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  /// Add a Product to cart
+  /// Add a Product to cart (offline first, then remote sync)
   void addToCart(ProductModel product, {int quantity = 1}) {
     if (quantity <= 0) return;
     final existingIndex = _items.indexWhere((item) => item.id == product.id);
@@ -94,11 +111,11 @@ class CartProvider extends ChangeNotifier {
         quantity: existing.quantity + quantity,
       );
     } else {
-      _items.add(CartItemModel.fromProduct(product, quantity: quantity));
+      _items.add(CartItem.fromProduct(product, quantity: quantity));
     }
 
     notifyListeners();
-    _syncWithApi();
+    _saveAndSync();
   }
 
   /// Increment quantity by 1
@@ -108,7 +125,7 @@ class CartProvider extends ChangeNotifier {
       final existing = _items[index];
       _items[index] = existing.copyWith(quantity: existing.quantity + 1);
       notifyListeners();
-      _syncWithApi();
+      _saveAndSync();
     }
   }
 
@@ -123,7 +140,7 @@ class CartProvider extends ChangeNotifier {
         _items.removeAt(index);
       }
       notifyListeners();
-      _syncWithApi();
+      _saveAndSync();
     }
   }
 
@@ -131,15 +148,16 @@ class CartProvider extends ChangeNotifier {
   void removeItem(int productId) {
     _items.removeWhere((item) => item.id == productId);
     notifyListeners();
-    _syncWithApi();
+    _saveAndSync();
   }
 
-  /// Clear all items from cart
+  /// Clear all items from cart (local and remote)
   void clearCart() {
     _items.clear();
     _appliedPromoCode = null;
     _promoDiscountRate = 0.0;
     notifyListeners();
+    _repository.clearLocalCart();
   }
 
   /// Apply promo code voucher
@@ -191,22 +209,21 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Background sync with DummyJSON Cart API
-  Future<void> _syncWithApi() async {
-    if (_items.isEmpty) return;
+  /// Persist to local offline storage immediately, then sync with Remote API
+  Future<void> _saveAndSync() async {
+    // 1. Immediately save offline
+    await _repository.saveLocalCart(_items);
 
+    // 2. Background sync with DummyJSON Cart API
     _isSyncing = true;
     notifyListeners();
 
     try {
-      final payload = _items
-          .map((i) => {
-                'id': i.id,
-                'quantity': i.quantity,
-              })
-          .toList();
-
-      await _service.syncCart(userId: _userId, products: payload);
+      await _repository.syncCart(
+        userId: _userId,
+        items: _items,
+        cartId: _cartId,
+      );
     } catch (_) {
       // Offline fallback: cart remains fully functional locally
     } finally {
