@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import '../../cart/data/models/cart_item.dart';
+import '../data/amarpay_service.dart';
 import '../data/order_repository.dart';
 import '../models/order_model.dart';
 import '../models/payment_method.dart';
+import '../models/payment_result.dart';
 import '../models/shipping_address_model.dart';
 
 class OrderProvider extends ChangeNotifier {
   final OrderRepository _repository;
+  final AmarpayService _amarpayService;
 
-  OrderProvider({OrderRepository? repository})
-      : _repository = repository ?? OrderRepository() {
+  OrderProvider({
+    OrderRepository? repository,
+    AmarpayService? amarpayService,
+  })  : _repository = repository ?? OrderRepository(),
+        _amarpayService = amarpayService ?? AmarpayService() {
     loadOrdersAndAddress();
   }
 
@@ -67,6 +73,30 @@ class OrderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Initiate aamarPay sandbox payment transaction
+  Future<PaymentResult> initiateAmarpayPayment({
+    required double amount,
+    required String transactionId,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final result = await _amarpayService.initiatePayment(
+        amount: amount,
+        transactionId: transactionId,
+        customerName: _currentAddress.recipientName,
+        customerPhone: _currentAddress.phoneNumber,
+        customerAddress: _currentAddress.streetAddress,
+        customerCity: _currentAddress.city,
+      );
+      return result;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   /// Place order, save to repository, and return order instance
   Future<OrderModel> placeOrder({
     required List<CartItem> items,
@@ -74,11 +104,14 @@ class OrderProvider extends ChangeNotifier {
     required double tax,
     required double shipping,
     required double total,
+    String? transactionId,
   }) async {
     _isLoading = true;
     notifyListeners();
 
-    final orderId = 'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+    final orderId = transactionId ??
+        'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+
     final order = OrderModel(
       id: orderId,
       createdAt: DateTime.now(),

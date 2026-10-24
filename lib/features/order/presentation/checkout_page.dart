@@ -8,6 +8,7 @@ import '../models/payment_method.dart';
 import '../models/shipping_address_model.dart';
 import '../providers/order_provider.dart';
 import 'order_success_page.dart';
+import 'widgets/amarpay_dialog.dart';
 import 'widgets/payment_option.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -73,12 +74,43 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final shipping = cartProvider.shippingFee;
     final total = double.parse((subtotal + tax + shipping).toStringAsFixed(2));
 
+    String? tranId;
+    if (orderProvider.selectedPaymentMethodId == 'amarpay') {
+      final generatedTranId = 'TXN_${DateTime.now().millisecondsSinceEpoch}';
+      final paymentResult = await orderProvider.initiateAmarpayPayment(
+        amount: total,
+        transactionId: generatedTranId,
+      );
+
+      if (!context.mounted) return;
+
+      final confirmed = await AmarpayPaymentDialog.show(
+        context,
+        paymentResult: paymentResult,
+        amount: total,
+      );
+
+      if (confirmed != true) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('aamarPay transaction cancelled.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+      tranId = generatedTranId;
+    }
+
     final placedOrder = await orderProvider.placeOrder(
       items: cartProvider.items,
       subtotal: subtotal,
       tax: tax,
       shipping: shipping,
       total: total,
+      transactionId: tranId,
     );
 
     // Clear cart after placing order
