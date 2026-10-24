@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/widgets/error_retry_widget.dart';
+import '../../../../core/widgets/search_bar_widget.dart';
 import '../../../../core/widgets/section_header.dart';
+import '../../products/presentation/screens/search_screen.dart';
 import '../../products/presentation/screens/product_detail_screen.dart';
 import '../../products/presentation/widgets/category_pill.dart';
 import '../../products/presentation/widgets/product_card.dart';
@@ -102,10 +104,26 @@ class _HomeScreenState extends State<HomeScreen> {
             onRefresh: () => provider.loadInitialData(),
             child: CustomScrollView(
               slivers: [
+                // Search Bar
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 6, 20, 16),
+                    child: SearchBarWidget(
+                      readOnly: true,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const SearchScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
                 // Top Promo Banner
                 const SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(20, 10, 20, 20),
+                    padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
                     child: PromoBannerCard(),
                   ),
                 ),
