@@ -46,6 +46,22 @@ class OrderRepository {
     }
   }
 
+  /// Update an existing order status in local storage
+  Future<void> updateOrder(OrderModel updatedOrder) async {
+    try {
+      final p = await _getPrefs();
+      final currentOrders = await getOrders();
+      final index = currentOrders.indexWhere((o) => o.id == updatedOrder.id);
+      if (index != -1) {
+        currentOrders[index] = updatedOrder;
+        final encoded = json.encode(currentOrders.map((e) => e.toJson()).toList());
+        await p.setString(_ordersKey, encoded);
+      }
+    } catch (_) {
+      // Ignore
+    }
+  }
+
   /// Clear all order history
   Future<void> clearOrders() async {
     try {

@@ -171,6 +171,17 @@ class OrderProvider extends ChangeNotifier {
     }
   }
 
+  /// Update status of an existing order
+  Future<void> updateOrderStatus(String orderId, String newStatus) async {
+    final index = _orders.indexWhere((o) => o.id == orderId);
+    if (index != -1) {
+      final updated = _orders[index].copyWith(status: newStatus);
+      _orders[index] = updated;
+      notifyListeners();
+      await _repository.updateOrder(updated);
+    }
+  }
+
   /// Clear all stored orders
   Future<void> clearAllOrders() async {
     _orders.clear();

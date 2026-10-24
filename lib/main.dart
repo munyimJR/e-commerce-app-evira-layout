@@ -4,6 +4,7 @@ import 'core/theme/theme_provider.dart';
 import 'features/cart/state/cart_provider.dart';
 import 'features/navigation/presentation/main_navigation_shell.dart';
 import 'features/order/providers/order_provider.dart';
+import 'features/profile/state/auth_provider.dart';
 import 'features/products/state/product_provider.dart';
 import 'features/products/state/search_provider.dart';
 import 'l10n/app_localizations.dart';
@@ -22,6 +23,7 @@ class MainApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => SearchProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()..loadInitialCart()),

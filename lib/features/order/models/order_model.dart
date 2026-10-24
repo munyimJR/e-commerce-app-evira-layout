@@ -62,4 +62,30 @@ class OrderModel {
       'status': status,
     };
   }
+
+  OrderModel copyWith({
+    String? id,
+    DateTime? createdAt,
+    List<CartItem>? items,
+    ShippingAddressModel? shippingAddress,
+    String? paymentMethod,
+    double? subtotal,
+    double? tax,
+    double? shippingFee,
+    double? totalAmount,
+    String? status,
+  }) {
+    return OrderModel(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      items: items ?? this.items,
+      shippingAddress: shippingAddress ?? this.shippingAddress,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      subtotal: subtotal ?? this.subtotal,
+      tax: tax ?? this.tax,
+      shippingFee: shippingFee ?? this.shippingFee,
+      totalAmount: totalAmount ?? this.totalAmount,
+      status: status ?? this.status,
+    );
+  }
 }
