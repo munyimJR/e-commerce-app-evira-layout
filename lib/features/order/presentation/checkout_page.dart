@@ -5,10 +5,11 @@ import '../../cart/state/cart_provider.dart';
 import '../../../../core/widgets/custom_network_image.dart';
 import '../../../../core/widgets/quantity_selector.dart';
 import '../models/payment_method.dart';
+import '../models/payment_result.dart';
 import '../models/shipping_address_model.dart';
 import '../providers/order_provider.dart';
+import 'amarpay_payment_page.dart';
 import 'order_success_page.dart';
-import 'widgets/amarpay_dialog.dart';
 import 'widgets/payment_option.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -84,17 +85,39 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       if (!context.mounted) return;
 
-      final confirmed = await AmarpayPaymentDialog.show(
+      if (!paymentResult.isSuccess || paymentResult.paymentUrl == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              (paymentResult.message != null && paymentResult.message!.isNotEmpty)
+                  ? paymentResult.message!
+                  : 'Failed to initiate aamarPay payment. Please try again.',
+            ),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      final PaymentResult? completedResult = await Navigator.push<PaymentResult>(
         context,
-        paymentResult: paymentResult,
-        amount: total,
+        MaterialPageRoute(
+          builder: (_) => AmarpayPaymentPage(
+            paymentUrl: paymentResult.paymentUrl!,
+            transactionId: generatedTranId,
+            amount: total,
+          ),
+        ),
       );
 
-      if (confirmed != true) {
+      if (completedResult == null || !completedResult.isSuccess) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('aamarPay transaction cancelled.'),
+            SnackBar(
+              content: Text(
+                completedResult?.message ?? 'aamarPay transaction was not completed.',
+              ),
               behavior: SnackBarBehavior.floating,
             ),
           );

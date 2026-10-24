@@ -60,10 +60,19 @@ class AmarpayService {
           final isSuccess = decoded['result'] == 'true' ||
               (decoded['payment_url'] != null && decoded['payment_url'].toString().isNotEmpty);
 
-          if (isSuccess) {
+          var paymentUrl = decoded['payment_url']?.toString();
+          if (paymentUrl != null && paymentUrl.isNotEmpty && !paymentUrl.startsWith('http')) {
+            if (paymentUrl.startsWith('/')) {
+              paymentUrl = '${PaymentConstants.sandboxBaseUrl}$paymentUrl';
+            } else {
+              paymentUrl = '${PaymentConstants.sandboxBaseUrl}/$paymentUrl';
+            }
+          }
+
+          if (isSuccess && paymentUrl != null && paymentUrl.isNotEmpty) {
             return PaymentResult.success(
               transactionId: transactionId,
-              paymentUrl: decoded['payment_url'] as String?,
+              paymentUrl: paymentUrl,
               message: 'aamarPay payment URL generated successfully',
               rawResponse: decoded,
             );
