@@ -22,9 +22,8 @@ void main() {
     await tester.pump();
 
     // Verify AppBar header components
-    expect(find.text('aamarPay'), findsOneWidget);
-    expect(find.text('Sandbox'), findsOneWidget);
-    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+    expect(find.text('Payment Gateway'), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsOneWidget);
 
     // Verify portal view in desktop / test environment
     expect(find.text('aamarPay Gateway Portal'), findsOneWidget);

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -28,6 +29,7 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
   double _progress = 0.0;
   bool _hasCompleted = false;
   String? _errorMessage;
+  Timer? _fallbackTimer;
 
   bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
@@ -36,44 +38,60 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
     super.initState();
     if (_isMobile) {
       _initWebView();
+      // Auto-reveal WebView after 1.2s to prevent getting blocked by third-party tracking scripts
+      _fallbackTimer = Timer(const Duration(milliseconds: 1200), () {
+        if (mounted && _isLoading) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      });
     } else {
       _isLoading = false;
     }
+  }
+
+  @override
+  void dispose() {
+    _fallbackTimer?.cancel();
+    super.dispose();
   }
 
   void _initWebView() {
     try {
       final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setBackgroundColor(Colors.white)
+        ..setUserAgent(
+          'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        )
+        ..setBackgroundColor(const Color(0xFF0A0E1A)) // Dark theme matching aamarPay web background
         ..setNavigationDelegate(
           NavigationDelegate(
             onProgress: (int progress) {
               if (mounted) {
                 setState(() {
                   _progress = progress / 100.0;
+                  // Once 25% or more is loaded, the page has rendered - reveal immediately
+                  if (progress >= 25) {
+                    _isLoading = false;
+                  }
                 });
               }
             },
             onPageStarted: (String url) {
-              if (mounted) {
-                setState(() {
-                  _isLoading = true;
-                  _errorMessage = null;
-                });
-              }
               _checkUrlForStatus(url);
             },
             onPageFinished: (String url) {
               if (mounted) {
                 setState(() {
                   _isLoading = false;
+                  _progress = 1.0;
                 });
               }
               _checkUrlForStatus(url);
             },
             onWebResourceError: (WebResourceError error) {
-              // Ignore subresource load cancellations
+              // Only report error if the main frame itself failed
               if (error.isForMainFrame == true && mounted) {
                 setState(() {
                   _errorMessage = error.description;
@@ -104,12 +122,11 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
     if (_hasCompleted) return true;
     final lower = url.toLowerCase();
 
-    // Success URL or success query params
-    if (lower.contains('payment/success') ||
+    // Check for success redirect (matches successUrl or success parameters)
+    if (lower.contains('example.app/payment/success') ||
         lower.contains('status_code=2') ||
         lower.contains('pay_status=successful') ||
-        lower.contains('/success.php') ||
-        lower.contains('result=true')) {
+        (lower.contains('success.php') && lower.contains('pay_status'))) {
       _finishPayment(
         PaymentResult.success(
           transactionId: widget.transactionId,
@@ -120,11 +137,10 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
       return true;
     }
 
-    // Failure URL or fail status
-    if (lower.contains('payment/fail') ||
+    // Check for fail redirect
+    if (lower.contains('example.app/payment/fail') ||
         lower.contains('pay_status=failed') ||
-        lower.contains('/fail.php') ||
-        lower.contains('result=false')) {
+        (lower.contains('fail.php') && lower.contains('pay_status'))) {
       _finishPayment(
         PaymentResult.failure(
           transactionId: widget.transactionId,
@@ -134,10 +150,10 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
       return true;
     }
 
-    // Cancel URL
-    if (lower.contains('payment/cancel') ||
+    // Check for cancel redirect
+    if (lower.contains('example.app/payment/cancel') ||
         lower.contains('pay_status=cancelled') ||
-        lower.contains('/cancel.php')) {
+        (lower.contains('cancel.php') && lower.contains('pay_status'))) {
       _finishPayment(
         PaymentResult.failure(
           transactionId: widget.transactionId,
@@ -153,6 +169,7 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
   void _finishPayment(PaymentResult result) {
     if (_hasCompleted) return;
     _hasCompleted = true;
+    _fallbackTimer?.cancel();
     if (mounted) {
       Navigator.of(context).pop(result);
     }
@@ -177,6 +194,7 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
     final shouldCancel = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Cancel Payment?'),
         content: const Text(
           'Are you sure you want to cancel the aamarPay payment transaction?',
@@ -187,9 +205,12 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
             child: const Text('No, Continue'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Yes, Cancel', style: TextStyle(color: Colors.white)),
+            child: const Text('Yes, Cancel'),
           ),
         ],
       ),
@@ -209,126 +230,114 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF181A20) : Colors.white;
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _onWillPop();
       },
       child: Scaffold(
-        backgroundColor: bgColor,
+        backgroundColor: const Color(0xFF0A0E1A), // Matches screenshot dark gateway background
         appBar: AppBar(
-          backgroundColor: isDark ? const Color(0xFF1F222A) : Colors.white,
-          elevation: 1,
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0.5,
           leading: IconButton(
-            icon: const Icon(Icons.close_rounded),
+            icon: const Icon(Icons.close, color: Colors.black, size: 24),
             onPressed: _onWillPop,
-            tooltip: 'Cancel Payment',
+            tooltip: 'Close',
           ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF536DFE).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'aamarPay',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF536DFE),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Text(
-                  'Sandbox',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber,
-                  ),
-                ),
-              ),
-            ],
+          title: const Text(
+            'Payment Gateway',
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
+          centerTitle: true,
           actions: [
             if (_isMobile && _webViewController != null)
               IconButton(
-                icon: const Icon(Icons.refresh_rounded),
+                icon: const Icon(Icons.refresh_rounded, color: Colors.black87),
                 onPressed: () {
+                  setState(() {
+                    _isLoading = true;
+                    _progress = 0.0;
+                  });
                   _webViewController?.reload();
                 },
-                tooltip: 'Reload Page',
+                tooltip: 'Reload',
               ),
             IconButton(
-              icon: const Icon(Icons.open_in_browser_rounded),
+              icon: const Icon(Icons.open_in_browser_rounded, color: Colors.black87),
               onPressed: _openExternalBrowser,
               tooltip: 'Open in Browser',
             ),
           ],
-          bottom: _isLoading && _isMobile
+          bottom: (_isLoading && _isMobile && _progress < 1.0)
               ? PreferredSize(
                   preferredSize: const Size.fromHeight(3),
                   child: LinearProgressIndicator(
-                    value: _progress > 0.0 ? _progress : null,
+                    value: _progress > 0.05 ? _progress : null,
                     backgroundColor: Colors.transparent,
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF536DFE)),
+                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFE67E22)),
                     minHeight: 3,
                   ),
                 )
               : null,
         ),
-        body: _buildBody(context, isDark),
+        body: _buildBody(context),
       ),
     );
   }
 
-  Widget _buildBody(BuildContext context, bool isDark) {
+  Widget _buildBody(BuildContext context) {
     if (_isMobile && _webViewController != null) {
       return Stack(
         children: [
+          // 1. The WebView is ALWAYS in the tree and renders live
           WebViewWidget(controller: _webViewController!),
-          if (_isLoading)
+
+          // 2. Only show an initial spinner if progress has barely started (< 20%)
+          if (_isLoading && _progress < 0.20 && _errorMessage == null)
             Container(
-              color: isDark ? const Color(0xFF181A20) : Colors.white,
+              color: const Color(0xFF0A0E1A),
               child: const Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(color: Color(0xFF536DFE)),
+                    CircularProgressIndicator(
+                      color: Color(0xFFE67E22),
+                      strokeWidth: 3,
+                    ),
                     SizedBox(height: 16),
                     Text(
-                      'Loading aamarPay Payment Gateway...',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                      'Connecting to aamarPay...',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
+
+          // 3. Error overlay if main frame fails to reach gateway
           if (_errorMessage != null)
-            _buildErrorOverlay(context, isDark, _errorMessage!),
+            _buildErrorOverlay(context, _errorMessage!),
         ],
       );
     }
 
-    // Fallback UI for Desktop / Web or Webview load issues
-    return _buildDesktopAndFallbackPortal(context, isDark);
+    // Fallback UI for Desktop / Web or environments without native webview
+    return _buildDesktopAndFallbackPortal(context);
   }
 
-  Widget _buildErrorOverlay(BuildContext context, bool isDark, String message) {
+  Widget _buildErrorOverlay(BuildContext context, String message) {
     return Container(
-      color: isDark ? const Color(0xFF181A20) : Colors.white,
+      color: const Color(0xFF0A0E1A),
       padding: const EdgeInsets.all(24),
       child: Center(
         child: Column(
@@ -338,13 +347,17 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
             const SizedBox(height: 16),
             const Text(
               'Gateway Page Loading Issue',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
+              style: const TextStyle(fontSize: 13, color: Colors.white70),
             ),
             const SizedBox(height: 24),
             Row(
@@ -352,10 +365,14 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
               children: [
                 OutlinedButton.icon(
                   onPressed: () {
+                    setState(() {
+                      _errorMessage = null;
+                      _isLoading = true;
+                    });
                     _webViewController?.reload();
                   },
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Try Again'),
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                  label: const Text('Try Again', style: TextStyle(color: Colors.white)),
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton.icon(
@@ -363,7 +380,7 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
                   icon: const Icon(Icons.open_in_browser_rounded),
                   label: const Text('Open in Browser'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF536DFE),
+                    backgroundColor: const Color(0xFFE67E22),
                     foregroundColor: Colors.white,
                   ),
                 ),
@@ -375,10 +392,7 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
     );
   }
 
-  Widget _buildDesktopAndFallbackPortal(BuildContext context, bool isDark) {
-    final cardColor = isDark ? const Color(0xFF1F222A) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF35383F) : const Color(0xFFEEEEEE);
-
+  Widget _buildDesktopAndFallbackPortal(BuildContext context) {
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -387,12 +401,11 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: cardColor,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: borderColor, width: 1),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+                  color: Colors.black.withValues(alpha: 0.15),
                   blurRadius: 16,
                   offset: const Offset(0, 4),
                 ),
@@ -408,12 +421,12 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF536DFE).withValues(alpha: 0.15),
+                        color: const Color(0xFFE67E22).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: const Icon(
                         Icons.payment_rounded,
-                        color: Color(0xFF536DFE),
+                        color: Color(0xFFE67E22),
                         size: 30,
                       ),
                     ),
@@ -427,6 +440,7 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
+                              color: Color(0xFF181A20),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -451,26 +465,26 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                Divider(color: borderColor),
+                const Divider(color: Color(0xFFEEEEEE)),
                 const SizedBox(height: 16),
 
                 // Transaction Meta
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF181A20) : const Color(0xFFF7F8FA),
+                    color: const Color(0xFFF7F8FA),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: borderColor, width: 0.8),
+                    border: Border.all(color: const Color(0xFFEEEEEE), width: 0.8),
                   ),
                   child: Column(
                     children: [
-                      _buildRow('Store ID', PaymentConstants.storeId, isDark),
+                      _buildRow('Store ID', PaymentConstants.storeId),
                       const SizedBox(height: 8),
-                      _buildRow('Transaction ID', widget.transactionId, isDark),
+                      _buildRow('Transaction ID', widget.transactionId),
                       const SizedBox(height: 8),
-                      _buildRow('Currency', PaymentConstants.defaultCurrency, isDark),
+                      _buildRow('Currency', PaymentConstants.defaultCurrency),
                       const SizedBox(height: 8),
-                      _buildRow('Gateway URL', 'sandbox.aamarpay.com', isDark),
+                      _buildRow('Gateway URL', 'sandbox.aamarpay.com'),
                     ],
                   ),
                 ),
@@ -480,11 +494,11 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
+                    const Text(
                       'Total Amount',
                       style: TextStyle(
                         fontSize: 14,
-                        color: isDark ? Colors.white70 : Colors.black54,
+                        color: Colors.black54,
                       ),
                     ),
                     Text(
@@ -492,7 +506,7 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF1E56F0),
+                        color: Color(0xFFE67E22),
                       ),
                     ),
                   ],
@@ -508,7 +522,7 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF536DFE),
+                    backgroundColor: const Color(0xFFE67E22),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -557,7 +571,7 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
                     );
                   },
                   style: TextButton.styleFrom(
-                    foregroundColor: isDark ? Colors.white60 : Colors.black54,
+                    foregroundColor: Colors.black54,
                   ),
                   child: const Text('Cancel Transaction'),
                 ),
@@ -569,25 +583,25 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
     );
   }
 
-  Widget _buildRow(String label, String value, bool isDark) {
+  Widget _buildRow(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 12,
-            color: isDark ? Colors.white54 : Colors.black54,
+            color: Colors.black54,
           ),
         ),
         Flexible(
           child: Text(
             value,
             textAlign: TextAlign.end,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white : const Color(0xFF181A20),
+              color: Color(0xFF181A20),
             ),
           ),
         ),
