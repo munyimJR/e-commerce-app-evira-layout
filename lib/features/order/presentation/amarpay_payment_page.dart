@@ -10,6 +10,7 @@ class AmarpayPaymentPage extends StatefulWidget {
   final String paymentUrl;
   final String transactionId;
   final double amount;
+  final double? usdAmount;
   final String? customerName;
   final String? itemsSummary;
 
@@ -18,6 +19,7 @@ class AmarpayPaymentPage extends StatefulWidget {
     required this.paymentUrl,
     required this.transactionId,
     required this.amount,
+    this.usdAmount,
     this.customerName,
     this.itemsSummary,
   });
@@ -412,13 +414,29 @@ class _AmarpayPaymentPageState extends State<AmarpayPaymentPage> {
                         color: Colors.black54,
                       ),
                     ),
-                    Text(
-                      '\$${widget.amount.toStringAsFixed(2)} ${PaymentConstants.defaultCurrency}',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFFE67E22),
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          widget.usdAmount != null
+                              ? '৳${widget.amount.toStringAsFixed(2)} BDT'
+                              : '\$${widget.amount.toStringAsFixed(2)} ${PaymentConstants.defaultCurrency}',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFFE67E22),
+                          ),
+                        ),
+                        if (widget.usdAmount != null)
+                          Text(
+                            '(\$${widget.usdAmount!.toStringAsFixed(2)} USD @ 1 USD = ৳${PaymentConstants.usdToBdtRate.toStringAsFixed(0)})',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black45,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),

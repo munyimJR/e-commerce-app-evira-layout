@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../cart/data/models/cart_item.dart';
 import '../../cart/state/cart_provider.dart';
+import '../../../../core/constants/payment_constants.dart';
 import '../../../../core/widgets/custom_network_image.dart';
 import '../../../../core/widgets/quantity_selector.dart';
 import '../models/payment_method.dart';
@@ -78,15 +79,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
     String? tranId;
     if (orderProvider.selectedPaymentMethodId == 'amarpay') {
       final generatedTranId = 'TXN_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Convert app USD total to BDT for aamarPay (1 USD = 120 BDT)
+      final bdtAmount = double.parse((total * PaymentConstants.usdToBdtRate).toStringAsFixed(2));
+
       final cartSummary = cartProvider.items
           .map((item) => '${item.quantity}x ${item.title}')
           .join(', ');
       final desc = cartSummary.isNotEmpty
-          ? 'Cart: $cartSummary'
-          : 'Order payment #$generatedTranId';
+          ? 'Cart: $cartSummary (\$${total.toStringAsFixed(2)} USD)'
+          : 'Order payment #$generatedTranId (\$${total.toStringAsFixed(2)} USD)';
 
       final paymentResult = await orderProvider.initiateAmarpayPayment(
-        amount: total,
+        amount: bdtAmount,
         transactionId: generatedTranId,
         cartItems: cartProvider.items,
         customerName: _nameController.text.trim(),
@@ -94,6 +99,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         customerAddress: _streetController.text.trim(),
         customerCity: _cityController.text.trim(),
         description: desc,
+        currency: 'BDT',
       );
 
       if (!context.mounted) return;
@@ -119,7 +125,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
           builder: (_) => AmarpayPaymentPage(
             paymentUrl: paymentResult.paymentUrl!,
             transactionId: generatedTranId,
-            amount: total,
+            amount: bdtAmount,
+            usdAmount: total,
             customerName: _nameController.text.trim(),
             itemsSummary: cartSummary,
           ),

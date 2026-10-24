@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/constants/payment_constants.dart';
 import '../../cart/data/models/cart_item.dart';
 import '../data/amarpay_service.dart';
 import '../data/order_repository.dart';
@@ -85,17 +86,28 @@ class OrderProvider extends ChangeNotifier {
     String? customerEmail,
     String? description,
     String? currency,
+    bool isUsd = false,
   }) async {
     _isLoading = true;
     notifyListeners();
 
     try {
+      final shouldConvertUsd = isUsd || currency == 'USD';
+      final effectiveAmount = shouldConvertUsd
+          ? double.parse((amount * PaymentConstants.usdToBdtRate).toStringAsFixed(2))
+          : amount;
+      final effectiveCurrency = shouldConvertUsd ? 'BDT' : (currency ?? PaymentConstants.defaultCurrency);
+
       final itemsSummary = (cartItems != null && cartItems.isNotEmpty)
           ? cartItems.map((e) => '${e.quantity}x ${e.title}').join(', ')
           : (description ?? 'Order payment #$transactionId');
 
+      final effectiveDesc = shouldConvertUsd
+          ? '$itemsSummary (\$${amount.toStringAsFixed(2)} USD)'
+          : itemsSummary;
+
       final result = await _amarpayService.initiatePayment(
-        amount: amount,
+        amount: effectiveAmount,
         transactionId: transactionId,
         customerName: (customerName != null && customerName.isNotEmpty)
             ? customerName
@@ -110,8 +122,8 @@ class OrderProvider extends ChangeNotifier {
             ? customerCity
             : _currentAddress.city,
         customerEmail: customerEmail,
-        description: itemsSummary,
-        currency: currency,
+        description: effectiveDesc,
+        currency: effectiveCurrency,
       );
       return result;
     } finally {
