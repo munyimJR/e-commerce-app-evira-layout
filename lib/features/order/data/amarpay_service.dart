@@ -46,8 +46,7 @@ class AmarpayService {
 
     // 1. On Flutter Web, use the CORS-enabled /index.php endpoint directly to avoid browser CORS blocks
     if (kIsWeb) {
-      final formResult = await _initiateViaFormPost(payload, transactionId);
-      if (formResult.isSuccess) return formResult;
+      return await _initiateViaFormPost(payload, transactionId);
     }
 
     // 2. On Mobile & Desktop (or as standard API), attempt /jsonpost.php first
@@ -139,14 +138,29 @@ class AmarpayService {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // Look for action="/paynow.php?track=AAM..." in response body
-        final match = RegExp(r'action="([^"]*paynow\.php[^"]*)"', caseSensitive: false)
-            .firstMatch(response.body);
-        if (match != null) {
-          var relPath = match.group(1) ?? '';
-          var fullUrl = relPath.startsWith('http')
-              ? relPath
-              : '${PaymentConstants.sandboxBaseUrl}${relPath.startsWith('/') ? '' : '/'}$relPath';
+        String? paymentUrl;
+
+        // a) First check if response is JSON (e.g. {"result":"true","payment_url":"https://..."})
+        try {
+          final dynamic decoded = json.decode(response.body);
+          if (decoded is Map<String, dynamic>) {
+            paymentUrl = decoded['payment_url']?.toString();
+          } else if (decoded is String && decoded.startsWith('http')) {
+            paymentUrl = decoded;
+          }
+        } catch (_) {}
+
+        // b) If not JSON, check for HTML form redirect (action="/paynow.php?track=AAM...")
+        if (paymentUrl == null || paymentUrl.isEmpty) {
+          final match = RegExp(r'action="([^"]*paynow\.php[^"]*)"', caseSensitive: false)
+              .firstMatch(response.body);
+          paymentUrl = match?.group(1);
+        }
+
+        if (paymentUrl != null && paymentUrl.isNotEmpty) {
+          var fullUrl = paymentUrl.startsWith('http')
+              ? paymentUrl
+              : '${PaymentConstants.sandboxBaseUrl}${paymentUrl.startsWith('/') ? '' : '/'}$paymentUrl';
           return PaymentResult.success(
             transactionId: transactionId,
             paymentUrl: fullUrl,
